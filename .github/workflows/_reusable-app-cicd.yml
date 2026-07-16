@@ -85,6 +85,9 @@ jobs:
             matrix:
                 include: ${{ fromJson(needs.plan.outputs.validate-python-matrix) }}
         steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
             - name: Validate python - ${{ matrix.name }} 
               uses: ./.github/actions/validate-python-pytest
               with:
@@ -104,6 +107,9 @@ jobs:
             matrix:
                 include: ${{ fromJson(needs.plan.outputs.validate-npm-matrix) }}
         steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
             - name: Validate npm - ${{ matrix.name }}
               uses: ./.github/actions/validate-npm-jest
               with:
@@ -151,6 +157,9 @@ jobs:
             matrix:
                 include: ${{ fromJson(needs.plan.outputs.build-docker-matrix) }}
         steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
             - name: Build Docker image
               id: build
               uses: ./.github/actions/build-docker
@@ -189,6 +198,9 @@ jobs:
             matrix:
                 include: ${{ fromJson(needs.plan.outputs.deploy-azure-ca-matrix) }}
         steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
             - name: Validate Change Record for Prod
               if: >-
                 matrix.environment == 'prod' || inputs.environment == 'prod' ||
