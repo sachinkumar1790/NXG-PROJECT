@@ -18,21 +18,24 @@ _MANIFEST_CANDIDATES  = ("pipeline.yaml", "pipeline.yml")
 
 
 def _load_registry_config(manifest_path: Path | None) -> dict[str, dict[str, Any]]:
-    """Load registry configuration from the workflow repository's shared .github/config/registries.yml."""
+    """Load registry configuration from .github/config/registries.yml.
+
+    Prefer registries.yml adjacent to the manifest (caller repo) before falling
+    back to the workflow action repository root.
+    """
     if manifest_path is None:
         return {}
 
     search_roots: list[Path] = []
 
-    script_root = Path(__file__).resolve().parents[3]
-    if script_root.exists():
-        search_roots.append(script_root)
-
     current = manifest_path.parent
     while current != current.parent:
-        if current not in search_roots:
-            search_roots.append(current)
+        search_roots.append(current)
         current = current.parent
+
+    script_root = Path(__file__).resolve().parents[3]
+    if script_root.exists() and script_root not in search_roots:
+        search_roots.append(script_root)
 
     for root in search_roots:
         registry_file = root / ".github" / "config" / "registries.yml"

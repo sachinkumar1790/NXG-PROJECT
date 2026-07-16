@@ -61,7 +61,7 @@ def test_parse_manifest_resolves_registry_metadata_for_docker_build(tmp_path, mo
 
     monkeypatch.chdir(repo_dir)
 
-    outputs = parse_manifest(manifest_path=None)
+    outputs = parse_manifest(manifest_path=str(repo_dir / "pipeline.yml"))
 
     entry = outputs["build-docker-matrix"][0]
     assert entry["registry"] == "test-gar"
@@ -108,7 +108,7 @@ def test_parse_manifest_builds_azure_ca_deploy_matrix(tmp_path, monkeypatch):
 
     monkeypatch.chdir(repo_dir)
 
-    outputs = parse_manifest(manifest_path=None)
+    outputs = parse_manifest(manifest_path=str(repo_dir / "pipeline.yml"))
 
     assert outputs["has-deploy-azure-ca"] is True
     entry = outputs["deploy-azure-ca-matrix"][0]
@@ -144,7 +144,7 @@ def test_parse_manifest_rejects_unknown_registry(tmp_path, monkeypatch):
     monkeypatch.chdir(repo_dir)
 
     try:
-        parse_manifest(manifest_path=None)
+        parse_manifest(manifest_path=str(repo_dir / "pipeline.yml"))
     except ValueError as exc:
         assert "missing-registry" in str(exc)
     else:
