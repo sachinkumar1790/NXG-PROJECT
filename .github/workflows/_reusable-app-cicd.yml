@@ -237,7 +237,7 @@ jobs:
                 azure-rg: ${{ matrix['azure-rg'] }}
                 app-name: ${{ matrix['app-name'] }}
                 container-apps-environment: ${{ matrix['container-apps-environment'] }}
-                registry-auth: ${{ toJSON(matrix['build-registry-auth'] || matrix['registry-auth'] || {}) }}
+                registry-auth: ${{ toJSON(matrix['build-registry-auth'] || matrix['registry-auth'] || fromJSON('{}')) }}
                 registry-endpoint: ${{ matrix['build-registry-endpoint'] || matrix['registry-endpoint'] || '' }}
                 target-port: ${{ matrix['target-port'] || '3000' }}
                 ingress: ${{ matrix.ingress || 'external' }}
