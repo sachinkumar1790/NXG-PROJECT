@@ -1,0 +1,61 @@
+# Validate & test npm
+name: Validate npm (jest)
+description: >
+  Run Jest tests for a Node.js Project
+
+inputs:
+  path: 
+    description: "Node App Working Dir"
+    required: false
+    default: ""
+  node-version:
+    description: "Node,js version to use (default: 24)"
+    required: false
+    default: "24"
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout Caller repository
+      uses: actions/checkout@v7
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.path || '.'}}
+      run: |
+        if [[ -f package-lock.json || -f npm-shrinkwrap.json ]]; then
+          if npm ci; then
+            echo "npm ci successful"
+          else
+            echo "npm ci failed; falling back to npm install"
+            npm install
+          fi
+        else
+          echo "no npm lockfile found; falling back to npm install"
+          npm install
+        fi
+
+    - name: Run tests
+      shell: bash
+      working-directory: ${{ inputs.path || '.' }}
+      run: npm test
+      
+    - name: Debug junit output
+      if: always()
+      shell: bash
+      working-directory: ${{ inputs.path || '.' }}
+      run: cat junit.xml
+    
+    - name: Surface NPM test results
+      if: always()
+      uses: dorny/test-reporter@v3
+      with:
+        name: 'NPM Test Results'
+        path: ${{ inputs.path }}/junit.xml
+        reporter: 'jest-junit'
+        fail-on-error: true

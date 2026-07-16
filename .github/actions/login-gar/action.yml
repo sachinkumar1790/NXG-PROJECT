@@ -1,0 +1,52 @@
+name: Login GAR
+description: Authenticate the runner for Google Artifact Registry using workload identity.
+
+inputs:
+  registry:
+    description: "Logical registry key from the manifest for traceability"
+    required: false
+    default: ""
+  registry-endpoint:
+    description: "Docker registry host for GAR, for example us-central1-docker.pkg.dev"
+    required: false
+    default: ""
+  registry-auth:
+    description: "WIF auth payload for GAR (wif_provider, wif_service_account, project_id)"
+    required: false
+    default: "{}"
+
+runs:
+  using: composite
+  steps:
+    - name: Authenticate to GAR
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ fromJSON(inputs.registry-auth).wif_provider || '' }}
+        service_account: ${{ fromJSON(inputs.registry-auth).wif_service_account || '' }}
+        project_id: ${{ fromJSON(inputs.registry-auth).project_id || '' }}
+        create_credentials_file: true
+        export_environment_variables: true
+        universe: googleapis.com
+        cleanup_credentials: true
+        access_token_lifetime: 3600s
+        access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+        id_token_include_email: false
+
+    - name: Configure Docker auth for GAR
+      shell: bash
+      env:
+        REGISTRY_ENDPOINT: ${{ inputs.registry-endpoint }}
+      run: |
+        if [[ -n "$REGISTRY_ENDPOINT" ]]; then
+          gcloud auth configure-docker "$REGISTRY_ENDPOINT" --quiet
+        fi
+
+    - name: Verify GAR docker access
+      shell: bash
+      env:
+        REGISTRY_ENDPOINT: ${{ inputs.registry-endpoint }}
+      run: |
+        if [[ -n "$REGISTRY_ENDPOINT" ]]; then
+          docker info >/dev/null
+          echo "GAR docker auth configured for $REGISTRY_ENDPOINT"
+        fi

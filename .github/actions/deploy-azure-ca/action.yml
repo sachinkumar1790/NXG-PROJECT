@@ -1,0 +1,137 @@
+name: Deploy Azure Container Apps
+description: >
+  Deploy a container image to Azure Container Apps.
+  Updates an existing app or creates one when container-apps-environment is provided.
+
+inputs:
+  image-ref:
+    description: "Full image reference (registry/repo:tag)"
+    required: true
+  region:
+    description: "Azure region (e.g. eastus)"
+    required: true
+  azure-subscription:
+    description: "Azure subscription name or ID"
+    required: true
+  azure-rg:
+    description: "Azure resource group containing the Container App"
+    required: true
+  app-name:
+    description: "Container App name (defaults to sanitized repository name)"
+    required: false
+    default: ""
+  container-apps-environment:
+    description: "Container Apps Environment name (required only when creating a new app)"
+    required: false
+    default: ""
+  registry-auth:
+    description: "Azure OIDC auth payload (client_id, tenant_id, subscription_id)"
+    required: false
+    default: "{}"
+  registry-endpoint:
+    description: "ACR login server used when creating a new app with a private registry"
+    required: false
+    default: ""
+  target-port:
+    description: "Container port exposed by the app"
+    required: false
+    default: "3000"
+  ingress:
+    description: "Ingress setting for new apps (external or internal)"
+    required: false
+    default: "external"
+
+outputs:
+  app-name:
+    description: "Deployed Container App name"
+    value: ${{ steps.deploy.outputs.app-name }}
+  app-url:
+    description: "Public URL when ingress is enabled"
+    value: ${{ steps.deploy.outputs.app-url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Azure login
+      uses: azure/login@v2
+      with:
+        client-id: ${{ fromJSON(inputs.registry-auth).client_id || '' }}
+        tenant-id: ${{ fromJSON(inputs.registry-auth).tenant_id || '' }}
+        subscription-id: ${{ fromJSON(inputs.registry-auth).subscription_id || inputs.azure-subscription }}
+
+    - name: Deploy to Azure Container Apps
+      id: deploy
+      shell: bash
+      env:
+        IMAGE_REF: ${{ inputs.image-ref }}
+        REGION: ${{ inputs.region }}
+        SUBSCRIPTION: ${{ inputs.azure-subscription }}
+        RESOURCE_GROUP: ${{ inputs.azure-rg }}
+        APP_NAME_INPUT: ${{ inputs.app-name }}
+        CAE: ${{ inputs.container-apps-environment }}
+        REGISTRY_ENDPOINT: ${{ inputs.registry-endpoint }}
+        TARGET_PORT: ${{ inputs.target-port }}
+        INGRESS: ${{ inputs.ingress }}
+        REPO_NAME: ${{ github.event.repository.name }}
+      run: |
+        set -euo pipefail
+
+        az account set --subscription "$SUBSCRIPTION"
+
+        if [[ -n "$APP_NAME_INPUT" ]]; then
+          APP_NAME="$APP_NAME_INPUT"
+        else
+          APP_NAME=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
+        fi
+
+        # Container App names: lowercase alphanumeric/hyphens, max 32 chars, start with letter
+        APP_NAME=$(echo "$APP_NAME" | sed 's/^[^a-z]*/ca-/')
+        APP_NAME=$(echo "$APP_NAME" | cut -c1-32 | sed 's/-$//')
+
+        echo "app-name=${APP_NAME}" >> "$GITHUB_OUTPUT"
+
+        if az containerapp show --name "$APP_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+          echo "Updating existing Container App '${APP_NAME}' with image ${IMAGE_REF}"
+          az containerapp update \
+            --name "$APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$IMAGE_REF"
+        else
+          if [[ -z "$CAE" ]]; then
+            echo "::error::Container App '${APP_NAME}' was not found in resource group '${RESOURCE_GROUP}'. Create it in Azure first, or set 'container-apps-environment' in pipeline.yml to allow automatic creation."
+            exit 1
+          fi
+
+          echo "Creating Container App '${APP_NAME}' in environment '${CAE}'"
+          CREATE_ARGS=(
+            --name "$APP_NAME"
+            --resource-group "$RESOURCE_GROUP"
+            --environment "$CAE"
+            --image "$IMAGE_REF"
+            --target-port "$TARGET_PORT"
+            --ingress "$INGRESS"
+          )
+
+          if [[ -n "$REGISTRY_ENDPOINT" ]]; then
+            REGISTRY_NAME="${REGISTRY_ENDPOINT%%.*}"
+            TOKEN=$(az acr login --name "$REGISTRY_NAME" --expose-token --output tsv --query accessToken)
+            CREATE_ARGS+=(--registry-server "$REGISTRY_ENDPOINT")
+            CREATE_ARGS+=(--registry-username "00000000-0000-0000-0000-000000000000")
+            CREATE_ARGS+=(--registry-password "$TOKEN")
+          fi
+
+          az containerapp create "${CREATE_ARGS[@]}"
+        fi
+
+        FQDN=$(az containerapp show \
+          --name "$APP_NAME" \
+          --resource-group "$RESOURCE_GROUP" \
+          --query "properties.configuration.ingress.fqdn" \
+          -o tsv)
+
+        if [[ -n "$FQDN" && "$FQDN" != "null" ]]; then
+          echo "app-url=https://${FQDN}" >> "$GITHUB_OUTPUT"
+          echo "Deployed to https://${FQDN}"
+        else
+          echo "Container App '${APP_NAME}' deployed (no external ingress URL)"
+        fi

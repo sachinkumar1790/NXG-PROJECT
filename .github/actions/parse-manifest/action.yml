@@ -1,0 +1,89 @@
+##
+name: Parse Pipeline Manifest
+description: >
+  Parse pipeline.yaml/yml manifest or any custom manifest
+  Output validation & build targets as outputs
+
+inputs:
+  manifest:
+    description: "Path to pipeline manifest file. Auto discovery allowed"
+    required: false
+    type: string
+    default: ""
+  env:
+    description: "Deplyment env (dev, stg, com, prd)"
+    required: false
+    type: string
+    default: "dev"
+  target:
+    description: "Build/Deploy targets to run. Else all will run"
+    required: false
+    type: string
+    default: ""
+
+outputs:
+  # -- validates (flag + matrix) -- 
+  has-validate-npm:
+    description: "True/False flag if there are validate targets for npm"
+    value: ${{ steps.parse.outputs.has-validate-npm }}
+  validate-npm-matrix:
+    description: "JSON array of targets for vaildate npm"
+    value: ${{ steps.parse.outputs.validate-npm-matrix }}
+  has-validate-python: 
+    description: "True/False flag if there are validate targets for python"
+    value: ${{ steps.parse.outputs.has-validate-python }}
+  validate-python-matrix: 
+    description: "JSON array of targets for vaildate python"
+    value: ${{ steps.parse.outputs.validate-python-matrix }}
+  # -- builds (flag + matrix) --
+  has-build-pack: 
+    description: "True/False flag if there are build targets for pack cli"
+    value: ${{ steps.parse.outputs.has-build-pack }}
+  build-pack-matrix: 
+    description: "JSON array of targets for build packcli"
+    value: ${{ steps.parse.outputs.build-pack-matrix }}
+  has-build-docker: 
+    description: "True/False flag if there are build targets for docker"
+    value: ${{ steps.parse.outputs.has-build-docker }}
+  build-docker-matrix: 
+    description: "JSON array of targets for build docker"
+    value: ${{ steps.parse.outputs.build-docker-matrix }}
+  # -- deploys (flag + matrix) -- 
+  has-deploy-cloudrun: 
+    description: "True/False flag if there are Google cloudrun deploy targets"
+    value: ${{ steps.parse.outputs.has-deploy-cloudrun }}
+  deploy-cloudrun-matrix: 
+    description: "JSON array of cloudrun deploy targets"
+    value: ${{ steps.parse.outputs.deploy-cloudrun-matrix }}
+  has-deploy-azure-ca: 
+    description: "True/False flag if there are Azure Container Apps targets"
+    value: ${{ steps.parse.outputs.has-deploy-azure-ca }} 
+  deploy-azure-ca-matrix: 
+    description: "JSON array of azure-ca deploy targets"
+    value: ${{ steps.parse.outputs.deploy-azure-ca-matrix }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+    
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyyaml
+
+    - name: Parse manifest and set outputs
+      id: parse
+      shell: bash
+      env:
+        MANIFEST: ${{ inputs.manifest }}
+        ENV: ${{ inputs.env }}
+        TARGET: ${{ inputs.target }}
+      run: >
+        python "${{ github.action_path }}/parse_manifest.py" --manifest "$MANIFEST"
+        --environment "$ENV"
+        --target "$TARGET"

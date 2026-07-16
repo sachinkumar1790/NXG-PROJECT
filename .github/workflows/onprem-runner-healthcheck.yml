@@ -1,0 +1,47 @@
+# .github/workflows/runner-healthcheck.yml
+name: On Prem Runner Health Check
+
+on:
+    workflow_dispatch:
+        inputs:
+            runner_label:
+                description: 'Label of the runner to use'
+                required: false
+                default: 'mgmt-ansible'
+                type: string
+    workflow_call:
+        inputs:
+            runner_label:
+                description: 'Label of the runner to use'
+                required: false
+                default: 'ubuntu-22.04'
+                type: string
+jobs:
+  onprem-runner-healthcheck:
+    name: OnPrem Runner Health Check
+    runs-on: ["${{ inputs.runner_label }}"]
+
+    steps:
+      - name: Check Runner Health
+        run: |
+          echo "Checking Runner Health..."
+          if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/healthz)" -ne 200 ]; then
+            echo "Runner is unhealthy!"
+            exit 1
+          else
+            echo "Runner is healthy."
+          fi
+
+      - name: Runner Environment
+        run: |
+          echo "=== Runner Validation ==="
+          echo "Runner: ${{ runner.name }} on ${{ runner.os }}"
+          echo ""
+          echo "=== System Info ==="
+          echo "OS: $(uname -a)"
+          echo ""
+          echo "=== Tool Version ==="
+          echo "Docker: $(docker --version)"
+          echo "Python: $(python3 --version)"
+          echo "Node: $(node --version)"
+          echo "NPM: $(npm --version)"

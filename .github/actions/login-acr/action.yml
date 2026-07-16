@@ -1,0 +1,35 @@
+name: Login ACR
+description: Authenticate the runner for Azure Container Registry using workload identity.
+
+inputs:
+  registry:
+    description: "Logical registry key from the manifest for traceability"
+    required: false
+    default: ""
+  registry-endpoint:
+    description: "Docker registry host for ACR, for example myregistry.azurecr.io"
+    required: false
+    default: ""
+  registry-auth:
+    description: "WIF auth payload for ACR (client_id, tenant_id, subscription_id)"
+    required: false
+    default: "{}"
+
+runs:
+  using: composite
+  steps:
+    - name: Azure login
+      uses: azure/login@v2
+      with:
+        client-id: ${{ fromJSON(inputs.registry-auth).client_id || '' }}
+        tenant-id: ${{ fromJSON(inputs.registry-auth).tenant_id || '' }}
+        subscription-id: ${{ fromJSON(inputs.registry-auth).subscription_id || '' }}
+
+    - name: Prepare ACR auth context
+      shell: bash
+      env:
+        REGISTRY_ENDPOINT: ${{ inputs.registry-endpoint }}
+      run: |
+        if [[ -n "$REGISTRY_ENDPOINT" ]]; then
+          echo "Azure auth ready for ACR registry $REGISTRY_ENDPOINT"
+        fi

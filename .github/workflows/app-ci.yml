@@ -1,0 +1,21 @@
+# Caller Workflow for CICD pipeline of nxg-github-actions
+name: Application CI/CD
+
+on:
+    push:
+        branches:
+            - main
+            - deploys
+    pull_request:
+        branches:
+            - main
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    id-token: write
+
+jobs:
+    cicd:
+        uses: ./.github/workflows/_reusable-app-cicd.yml
+        secrets: inherit

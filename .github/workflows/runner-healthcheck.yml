@@ -1,0 +1,37 @@
+# .github/workflows/runner-healthcheck.yml
+name: Runner Health Check
+
+on:
+    workflow_dispatch:
+        inputs:
+            runner_label:
+                description: 'Label of the runner to use'
+                required: false
+                default: 'ubuntu-22.04'
+                type: string
+    workflow_call:
+        inputs:
+            runner_label:
+                description: 'Label of the runner to use'
+                required: false
+                default: 'ubuntu-22.04'
+                type: string
+jobs:
+  runner-healthcheck:
+    name: Runner Health Check
+    runs-on: ${{ inputs.runner_label }}
+
+    steps:
+      - name: Runner Environment
+        run: |
+          echo "=== Runner Validation ==="
+          echo "Runner: ${{ runner.name }} on ${{ runner.os }}"
+          echo ""
+          echo "=== System Info ==="
+          echo "OS: $(uname -a)"
+          echo ""
+          echo "=== Tool Version ==="
+          echo "Docker: $(docker --version)"
+          echo "Python: $(python3 --version)"
+          echo "Node: $(node --version)"
+          echo "NPM: $(npm --version)"

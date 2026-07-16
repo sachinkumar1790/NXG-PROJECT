@@ -1,0 +1,28 @@
+{
+  "name": "nxg-hello-api",
+  "version": "1.0.0",
+  "description": "Simple Express API with Jest tests",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "jest-junit": "^16.0.0",
+    "supertest": "^6.3.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "reporters": [
+      "default",
+      ["jest-junit", {
+        "outputDirectory": ".",
+        "outputName": "junit.xml"
+      }]
+    ]
+  }
+}
