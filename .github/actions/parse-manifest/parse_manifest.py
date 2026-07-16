@@ -18,24 +18,21 @@ _MANIFEST_CANDIDATES  = ("pipeline.yaml", "pipeline.yml")
 
 
 def _load_registry_config(manifest_path: Path | None) -> dict[str, dict[str, Any]]:
-    """Load registry configuration from .github/config/registries.yml.
-
-    Prefer registries.yml adjacent to the manifest (caller repo) before falling
-    back to the workflow action repository root.
-    """
+    """Load registry configuration from the workflow repository's shared .github/config/registries.yml."""
     if manifest_path is None:
         return {}
 
     search_roots: list[Path] = []
 
+    script_root = Path(__file__).resolve().parents[3]
+    if script_root.exists():
+        search_roots.append(script_root)
+
     current = manifest_path.parent
     while current != current.parent:
-        search_roots.append(current)
+        if current not in search_roots:
+            search_roots.append(current)
         current = current.parent
-
-    script_root = Path(__file__).resolve().parents[3]
-    if script_root.exists() and script_root not in search_roots:
-        search_roots.append(script_root)
 
     for root in search_roots:
         registry_file = root / ".github" / "config" / "registries.yml"
@@ -60,7 +57,7 @@ def _normalize_entry(entry: dict, registry_config: dict[str, dict[str, Any]] | N
         registry_name = entry.get("registry")
         if registry_name:
             registry_def = (registry_config or {}).get(registry_name, {})
-            if not registry_def:
+            if not isinstance(registry_def, dict):
                 raise ValueError(f"Unknown registry '{registry_name}'")
             nomalized["registry"] = registry_name
             nomalized["registry-type"] = registry_def.get("type", "")
@@ -190,29 +187,29 @@ def parse_manifest(
     build_docker_matrix = _build_matrix(manifest, "docker", registry_config)
     
     # deploy matrices
-    deploy_cloudrun_matrix = _deploy_matrix(manifest, build_lookup, "cloudrun", registry_config)
-    deploy_azure_ca_matrix = _deploy_matrix(manifest, build_lookup, "azure-ca", registry_config)
+    deploy_cloudrun_matrix = _deploy_matrix(manifest, build_lookup, "cloudrun")
+    deploy_azure_ca_matrix = _deploy_matrix(manifest, build_lookup, "azure-ca")
     
     # ---- Filter by Environment ----
+    # if environment exists & not "all"
     if environment and environment != "all":
         deploy_cloudrun_matrix = [
-            d for d in deploy_cloudrun_matrix
-            if not d.get("environment") or d.get("environment") == environment
+            d for d in deploy_cloudrun_matrix if d["target"] == target
         ]
         deploy_azure_ca_matrix = [
-            d for d in deploy_azure_ca_matrix
-            if not d.get("environment") or d.get("environment") == environment
+            d for d in deploy_azure_ca_matrix if d["target"] == target
         ]
     
     # --- Filter by Target ---
+    # Target links to build id (only build targets we want to deploy)
     if target and target != "all":
         deploy_cloudrun_matrix = [
             d for d in deploy_cloudrun_matrix
-            if not d.get("target") or d.get("target") == target
+            if not d.get("environment") or d.get("environment") == environment
         ]
         deploy_azure_ca_matrix = [
             d for d in deploy_azure_ca_matrix
-            if not d.get("target") or d.get("target") == target
+            if not d.get("environment") or d.get("environment") == environment
         ]
         deployed_targets = {
             d["target"] for d in deploy_cloudrun_matrix + deploy_azure_ca_matrix
@@ -309,8 +306,7 @@ def _build_matrix(
 def _deploy_matrix(
     manifest: dict,
     build_lookup: dict[str, dict],
-    deploy_type: str,
-    registry_config: dict[str, dict[str, Any]] | None = None,
+    deploy_type: str
 ) -> list[dict[str,any]]:
     """ Create Deploy matrix for the different deploy types (cloudrun, azure-ca)
     Args:  
@@ -331,7 +327,7 @@ def _deploy_matrix(
             raise ValueError(f"deploy[{idx}] must be a mapping")
         if not entry.get("type"): 
             raise ValueError(f"deploy[{idx}] missing required 'type' field")
-        if entry["type"] != deploy_type:
+        if entry["type"] == deploy_type: 
             continue
         
         target = entry.get("target")
@@ -357,14 +353,6 @@ def _deploy_matrix(
         
         normalized = _normalize_entry(entry)
         normalized["target"] = target or ""
-
-        if target and target in build_lookup:
-            build_meta = _normalize_entry(build_lookup[target], registry_config)
-            normalized["build-registry-auth"] = build_meta.get("registry-auth", {})
-            normalized["build-registry-endpoint"] = build_meta.get("registry-endpoint", "")
-            if build_meta.get("application-name"):
-                normalized.setdefault("application-name", build_meta["application-name"])
-
         matrix.append(normalized)
     return matrix
                

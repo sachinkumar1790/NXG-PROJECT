@@ -16,9 +16,7 @@ build:
   - id: api
     type: docker
     path: node-app-test
-    # GCP disabled for local/testing — use Azure ACR instead (see registries.yml)
-    # registry: test-gar
-    registry: test-acr
+    registry: test-gar
     repository: docker-dev
     # context: node-app-test
     # application-name: my-app
@@ -26,28 +24,21 @@ build:
     # tags vs tagsource 
 
 deploy:
-  # --- GCP Cloud Run (disabled for testing) ---
-  # #target = default
-  # - type: cloudrun
-  #   region: us-central1
-  #   gcp-project: sbx-test-501815
-  #   identity-project: id-proj
+  #target = default
+  - type: cloudrun
+    region: us-central1
+    gcp-project: sbx-test-501815
+    identity-project: id-proj
   # target = api,
   - type: azure-ca
     environment: dev
     target: api
     region: eastus
-    azure-subscription: aa338cfd-bfd5-4501-a9c2-9f814b773c05
-    azure-rg: my-nxg-rg
-    # Optional — defaults to sanitized repo name when omitted
-    app-name: nxg-node-app
-    # Required only when creating a new Container App (update path needs an existing app)
-    container-apps-environment: my-container-apps-env
-    target-port: 3000  
-  # --- GCP Cloud Run with explicit image (disabled for testing) ---
-  # # image = httpd (so no target)
-  # - type: cloudrun
-  #   region: us-central1
-  #   image: httpd
-  #   gcp-project: sbx-test-501815
-  #   identity-project: id-proj
+    azure-subscription: nxg-text
+    azure-rg: nxg-rg  
+  # image = httpd (so no target)
+  - type: cloudrun
+    region: us-central1
+    image: httpd
+    gcp-project: sbx-test-501815
+    identity-project: id-proj

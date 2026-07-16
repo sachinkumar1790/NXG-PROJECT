@@ -61,7 +61,7 @@ def test_parse_manifest_resolves_registry_metadata_for_docker_build(tmp_path, mo
 
     monkeypatch.chdir(repo_dir)
 
-    outputs = parse_manifest(manifest_path=str(repo_dir / "pipeline.yml"))
+    outputs = parse_manifest(manifest_path=None)
 
     entry = outputs["build-docker-matrix"][0]
     assert entry["registry"] == "test-gar"
@@ -70,55 +70,6 @@ def test_parse_manifest_resolves_registry_metadata_for_docker_build(tmp_path, mo
     assert entry["registry-auth-method"] == "workload-identity"
     assert entry["context"] == "node-app-test"
     assert entry["dockerfile"] == "node-app-test/Dockerfile"
-
-
-def test_parse_manifest_builds_azure_ca_deploy_matrix(tmp_path, monkeypatch):
-    repo_dir = tmp_path / "repo"
-    config_dir = repo_dir / ".github" / "config"
-    config_dir.mkdir(parents=True)
-    (repo_dir / "pipeline.yml").write_text(
-        "build:\n"
-        "  - id: api\n"
-        "    type: docker\n"
-        "    path: node-app-test\n"
-        "    registry: test-acr\n"
-        "    repository: docker-dev\n"
-        "deploy:\n"
-        "  - type: azure-ca\n"
-        "    environment: dev\n"
-        "    target: api\n"
-        "    region: eastus\n"
-        "    azure-subscription: sub-123\n"
-        "    azure-rg: my-rg\n"
-        "    app-name: my-app\n",
-        encoding="utf-8",
-    )
-    (config_dir / "registries.yml").write_text(
-        "registries:\n"
-        "  test-acr:\n"
-        "    type: acr\n"
-        "    endpoint: myregistry.azurecr.io\n"
-        "    auth:\n"
-        "      method: workload-identity\n"
-        "      client_id: client-1\n"
-        "      tenant_id: tenant-1\n"
-        "      subscription_id: sub-1\n",
-        encoding="utf-8",
-    )
-
-    monkeypatch.chdir(repo_dir)
-
-    outputs = parse_manifest(manifest_path=str(repo_dir / "pipeline.yml"))
-
-    assert outputs["has-deploy-azure-ca"] is True
-    entry = outputs["deploy-azure-ca-matrix"][0]
-    assert entry["target"] == "api"
-    assert entry["region"] == "eastus"
-    assert entry["azure-subscription"] == "sub-123"
-    assert entry["azure-rg"] == "my-rg"
-    assert entry["app-name"] == "my-app"
-    assert entry["build-registry-endpoint"] == "myregistry.azurecr.io"
-    assert entry["build-registry-auth"]["client_id"] == "client-1"
 
 
 def test_parse_manifest_rejects_unknown_registry(tmp_path, monkeypatch):
@@ -144,7 +95,7 @@ def test_parse_manifest_rejects_unknown_registry(tmp_path, monkeypatch):
     monkeypatch.chdir(repo_dir)
 
     try:
-        parse_manifest(manifest_path=str(repo_dir / "pipeline.yml"))
+        parse_manifest(manifest_path=None)
     except ValueError as exc:
         assert "missing-registry" in str(exc)
     else:

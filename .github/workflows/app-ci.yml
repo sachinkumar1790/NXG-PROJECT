@@ -6,6 +6,7 @@ on:
         branches:
             - main
             - deploys
+            - dev-test
     pull_request:
         branches:
             - main
@@ -17,5 +18,5 @@ permissions:
 
 jobs:
     cicd:
-        uses: ./.github/workflows/_reusable-app-cicd.yml
+        uses: nxtgenhub-com/nxg-github-actions/.github/workflows/_reusable-app-cicd.yml@deploys
         secrets: inherit

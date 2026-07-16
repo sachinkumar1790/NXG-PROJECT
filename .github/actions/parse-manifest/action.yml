@@ -85,5 +85,5 @@ runs:
         TARGET: ${{ inputs.target }}
       run: >
         python "${{ github.action_path }}/parse_manifest.py" --manifest "$MANIFEST"
-        --environment "$ENV"
+        --env "$ENV" 
         --target "$TARGET"

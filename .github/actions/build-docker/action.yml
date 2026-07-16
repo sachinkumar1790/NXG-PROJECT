@@ -47,10 +47,6 @@ inputs:
     description: "Artifactory base URL (e.g. https://myorg.jfrog.io)"
     required: false
     default: "nxtgenhub.jfrog.io"
-  build-id:
-    description: "Build target id used for downstream deploy artifact naming"
-    required: false
-    default: "default"
 
 outputs:
   image:
@@ -181,25 +177,3 @@ runs:
       env:
         IMAGE_REF: ${{ steps.meta.outputs.image-ref }}
       run: echo "Image already exists"
-
-    - name: Publish build output for deploy
-      shell: bash
-      env:
-        IMAGE: ${{ steps.meta.outputs.image }}
-        TAG: ${{ steps.meta.outputs.tag }}
-        IMAGE_REF: ${{ steps.meta.outputs.image-ref }}
-        BUILD_ID: ${{ inputs.build-id }}
-      run: |
-        set -euo pipefail
-        mkdir -p build-output
-        printf '%s' "$IMAGE" > build-output/image
-        printf '%s' "$TAG" > build-output/tag
-        printf '%s' "$IMAGE_REF" > build-output/image-ref
-        echo "Published build output for target '${BUILD_ID}'"
-
-    - name: Upload build output artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-output-${{ inputs.build-id }}
-        path: build-output/
-        retention-days: 1

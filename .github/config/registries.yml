@@ -1,30 +1,21 @@
 registries:
-  # ---------------------------------------------------------------------------
-  # GCP / GAR — disabled for testing (uncomment when you have GCP WIF set up)
-  # ---------------------------------------------------------------------------
-  # test-gar:
-  #   type: gar
-  #   endpoint: uscentral1-docker.pkg.dev
-  #   auth:
-  #     method: workload-identity
-  #     project_id: YOUR_GCP_PROJECT_NUMBER
-  #     wif_provider: projects/YOUR_PROJECT/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
-  #     wif_pool_id: projects/YOUR_PROJECT/locations/global/workloadIdentityPools/POOL
-  #     wif_service_account: YOUR_SA@YOUR_PROJECT.iam.gserviceaccount.com
+  # test Google Artifactry Registry (GAR) - for testing only
+  test-gar:
+    type: gar
+    endpoint: uscentral1-docker.pkg.dev
+    auth: 
+      method: workload-identity
+      project_id: 508402723970
+      wif_provider: projects/508402723970/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+      wif_pool_id: projects/508402723970/locations/global/workloadIdentityPools/github-pool
+      wif_service_account:  github-actions-sa  
 
-  # ---------------------------------------------------------------------------
-  # Azure Container Registry (ACR) — replace placeholders with YOUR Azure values
-  # See setup guide in repo docs / README or the chat explanation for WIF steps.
-  # ---------------------------------------------------------------------------
+  ## test Azure Container Registry (ACR) - for testing only
   test-acr:
     type: acr
-    # Your ACR login server, e.g. myregistry.azurecr.io (Azure Portal → ACR → Overview)
-    endpoint: mynxgacr.azurecr.io
+    endpoint: nxgtext.azurecr.io
     auth:
       method: workload-identity
-      # App registration / managed identity client ID (Azure Portal → App registrations)
-      client_id: b46f7c1c-3adc-4ae2-8136-4289e98df69f
-      # Azure AD tenant ID (Azure Portal → Microsoft Entra ID → Overview)
-      tenant_id: 464d9d0a-c13f-4622-ba21-e7ffd4adecb2
-      # Subscription that owns the ACR (Azure Portal → Subscriptions)
-      subscription_id: aa338cfd-bfd5-4501-a9c2-9f814b773c05
+      client_id: 00000000-0000-0000-0000-000000000000
+      tenant_id: 11111111-1111-1111-1111-111111111111
+      subscription_id: 22222222-2222-2222-2222-222222222222

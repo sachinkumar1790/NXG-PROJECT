@@ -85,11 +85,8 @@ jobs:
             matrix:
                 include: ${{ fromJson(needs.plan.outputs.validate-python-matrix) }}
         steps:
-            - name: Checkout repository
-              uses: actions/checkout@v7
-
             - name: Validate python - ${{ matrix.name }} 
-              uses: ./.github/actions/validate-python-pytest
+              uses: nxtgenhub-com/nxg-github-actions/.github/actions/validate-python-pytest@deploys
               with:
                 path: ${{ matrix.path || '.' }} 
 
@@ -107,11 +104,8 @@ jobs:
             matrix:
                 include: ${{ fromJson(needs.plan.outputs.validate-npm-matrix) }}
         steps:
-            - name: Checkout repository
-              uses: actions/checkout@v7
-
             - name: Validate npm - ${{ matrix.name }}
-              uses: ./.github/actions/validate-npm-jest
+              uses: nxtgenhub-com/nxg-github-actions/.github/actions/validate-npm-jest@deploys
               with:
                 path: ${{ matrix.path || '.' }}
 
@@ -157,14 +151,10 @@ jobs:
             matrix:
                 include: ${{ fromJson(needs.plan.outputs.build-docker-matrix) }}
         steps:
-            - name: Checkout repository
-              uses: actions/checkout@v7
-
             - name: Build Docker image
               id: build
-              uses: ./.github/actions/build-docker
+              uses: nxtgenhub-com/nxg-github-actions/.github/actions/build-docker@deploys
               with:
-                build-id: ${{ matrix.id || 'default' }}
                 img-repository: ${{ matrix.repository }}
                 context: ${{ matrix.context || matrix.path }}
                 dockerfile: ${{ matrix.dockerfile }}
@@ -179,13 +169,13 @@ jobs:
 
 
     # ---------------------------------------------------------
-    #  DEPLOY - Azure Container Apps
+    #  DEPLOY - Deploy to Target
     # ---------------------------------------------------------
-    deploy-azure-ca:
-        needs: [plan, validate-npm-jest, validate-python-pytest, build-docker]
+    deploy-cloudrun:
+        needs: [plan, validate-npm-jest, validate-python-pytest, build-docker] # build-pack-cli
         if: >-
             always()
-            && needs.plan.outputs.has-deploy-azure-ca == 'true'
+            && needs.plan.outputs.has-deploy-cloudrun == 'true'
             && !contains(needs.*.result, 'failure')
             && !contains(needs.*.result, 'cancelled')
         runs-on: ${{ inputs.runner }}
@@ -194,116 +184,39 @@ jobs:
             contents: read
             id-token: write
         strategy:
-            fail-fast: false
+            fail-fast: false   
             matrix:
-                include: ${{ fromJson(needs.plan.outputs.deploy-azure-ca-matrix) }}
+                include: ${{ fromJson(needs.plan.outputs.deploy-cloudrun-matrix) }}
         steps:
-            - name: Checkout repository
-              uses: actions/checkout@v7
-
             - name: Validate Change Record for Prod
               if: >-
                 matrix.environment == 'prod' || inputs.environment == 'prod' ||
-                matrix.environment == 'prd' || inputs.environment == 'prd'
+                matrix.environment == 'prd' || inputs .environment == 'prd'
               shell: bash
               env:
                 CHANGE_RECORD: ${{ inputs.change-record }}
               run: |
                 if [[ -z "$CHANGE_RECORD" ]]; then
-                    echo "::error::A ServiceNow change record is required for production"
+                    echo ":: ERROR: A ServiceNow chnage record is required for production"
                     exit 1
                 fi
                 echo "Change record: $CHANGE_RECORD"
 
             - name: Download build output
-              if: matrix.target != '' && (matrix.image == '' || matrix.image == null)
+              if: matrix.target != ''
               uses: actions/download-artifact@v4
               with:
                 name: build-output-${{ matrix.target }}
                 path: /tmp/build-output
-
-            - name: Resolve deploy image
+            
+            - name: Resolve deploy reference
               id: deploy-ref
               shell: bash
               env:
                 MATRIX_IMAGE: ${{ matrix.image }}
-                DEPLOY_TARGET: ${{ matrix.target }}
               run: |
-                set -euo pipefail
                 if [[ -n "$MATRIX_IMAGE" ]]; then
-                  echo "image-ref=$MATRIX_IMAGE" >> "$GITHUB_OUTPUT"
-                elif [[ -f /tmp/build-output/image-ref ]]; then
-                  echo "image-ref=$(cat /tmp/build-output/image-ref)" >> "$GITHUB_OUTPUT"
+                    echo "ref=$MATRIX_IMAGE" >> "$GITHUB_OUTPUT"
                 else
-                  echo "::error::No image reference found for deploy target '${DEPLOY_TARGET}'"
-                  exit 1
+                    exit 1
                 fi
-                echo "Deploying image: $(cat "$GITHUB_OUTPUT" | grep image-ref | cut -d= -f2-)"
-
-            - name: Deploy to Azure Container Apps
-              uses: ./.github/actions/deploy-azure-ca
-              with:
-                image-ref: ${{ steps.deploy-ref.outputs.image-ref }}
-                region: ${{ matrix.region }}
-                azure-subscription: ${{ matrix['azure-subscription'] }}
-                azure-rg: ${{ matrix['azure-rg'] }}
-                app-name: ${{ matrix['app-name'] }}
-                container-apps-environment: ${{ matrix['container-apps-environment'] }}
-                registry-auth: ${{ toJSON(matrix['build-registry-auth'] || matrix['registry-auth'] || fromJSON('{}')) }}
-                registry-endpoint: ${{ matrix['build-registry-endpoint'] || matrix['registry-endpoint'] || '' }}
-                target-port: ${{ matrix['target-port'] || '3000' }}
-                ingress: ${{ matrix.ingress || 'external' }}
-
-
-    # ---------------------------------------------------------
-    #  DEPLOY - GCP Cloud Run (disabled for testing — no GCP credentials needed)
-    # ---------------------------------------------------------
-    # deploy-cloudrun:
-    #     needs: [plan, validate-npm-jest, validate-python-pytest, build-docker]
-    #     if: >-
-    #         always()
-    #         && needs.plan.outputs.has-deploy-cloudrun == 'true'
-    #         && !contains(needs.*.result, 'failure')
-    #         && !contains(needs.*.result, 'cancelled')
-    #     runs-on: ${{ inputs.runner }}
-    #     environment: ${{ matrix.environment || inputs.environment || 'dev' }}
-    #     permissions:
-    #         contents: read
-    #         id-token: write
-    #     strategy:
-    #         fail-fast: false
-    #         matrix:
-    #             include: ${{ fromJson(needs.plan.outputs.deploy-cloudrun-matrix) }}
-    #     steps:
-    #         - name: Validate Change Record for Prod
-    #           if: >-
-    #             matrix.environment == 'prod' || inputs.environment == 'prod' ||
-    #             matrix.environment == 'prd' || inputs.environment == 'prd'
-    #           shell: bash
-    #           env:
-    #             CHANGE_RECORD: ${{ inputs.change-record }}
-    #           run: |
-    #             if [[ -z "$CHANGE_RECORD" ]]; then
-    #                 echo ":: ERROR: A ServiceNow change record is required for production"
-    #                 exit 1
-    #             fi
-    #             echo "Change record: $CHANGE_RECORD"
-    #
-    #         - name: Download build output
-    #           if: matrix.target != ''
-    #           uses: actions/download-artifact@v4
-    #           with:
-    #             name: build-output-${{ matrix.target }}
-    #             path: /tmp/build-output
-    #
-    #         - name: Resolve deploy reference
-    #           id: deploy-ref
-    #           shell: bash
-    #           env:
-    #             MATRIX_IMAGE: ${{ matrix.image }}
-    #           run: |
-    #             if [[ -n "$MATRIX_IMAGE" ]]; then
-    #                 echo "ref=$MATRIX_IMAGE" >> "$GITHUB_OUTPUT"
-    #             else
-    #                 exit 1
-    #             fi
